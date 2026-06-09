@@ -28,31 +28,6 @@ if (isset($_GET['edit'])) {
 if (isset($_GET['delete'])) {
     $id_to_delete = (int)$_GET['delete'];
     
-    // Reverse inventory math if we are deleting a stock transaction
-    if ("Category" === "StockTransaction") {
-        $get_old_transaction_sql = "SELECT * FROM StockTransaction WHERE CategoryID = $id_to_delete";
-        $transaction_result = $conn->query($get_old_transaction_sql);
-        if ($transaction_result) {
-            $old_transaction = $transaction_result->fetch_assoc();
-            if ($old_transaction) {
-                $transaction_type = $old_transaction['TransactionType'];
-                $transaction_quantity = (int)$old_transaction['Quantity'];
-                $part_id = (int)$old_transaction['PartID'];
-                
-                // If we delete a Sale, we get the parts back (add them)
-                if ($transaction_type === 'Sale') {
-                    $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $transaction_quantity WHERE PartID = $part_id";
-                    $conn->query($update_inventory_sql);
-                } else {
-                    // If we delete a Receipt, we lose the parts (subtract them)
-                    if ($transaction_type === 'Receipt' || $transaction_type === 'Adjustment') {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    }
-                }
-            }
-        }
-    }
     
     // Perform the actual deletion
     $delete_query = "DELETE FROM Category WHERE CategoryID = $id_to_delete";
@@ -76,45 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $id_to_update = (int)$_POST['update_id'];
         
         // Before updating a stock transaction, reverse its old math from the inventory
-        if ("Category" === "StockTransaction") {
-            $get_old_transaction_sql = "SELECT * FROM StockTransaction WHERE CategoryID = $id_to_update";
-            $transaction_result = $conn->query($get_old_transaction_sql);
-            if ($transaction_result) {
-                $old_transaction = $transaction_result->fetch_assoc();
-                if ($old_transaction) {
-                    $old_transaction_type = $old_transaction['TransactionType'];
-                    $old_transaction_quantity = (int)$old_transaction['Quantity'];
-                    $part_id = (int)$old_transaction['PartID'];
-                    
-                    if ($old_transaction_type === 'Sale') {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $old_transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    } else {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $old_transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    }
-                }
-            }
-        }
         
         // Update the actual record
         $update_record_sql = "UPDATE Category SET CategoryName = $CategoryName WHERE CategoryID = $id_to_update";
         $conn->query($update_record_sql);
         
-        // Apply the NEW inventory math for the updated transaction
-        if ("Category" === "StockTransaction") {
-            $transaction_type = $_POST['TransactionType'];
-            $transaction_quantity = (int)$_POST['Quantity'];
-            $part_id = (int)$_POST['PartID'];
-            
-            if ($transaction_type === 'Sale') {
-                $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $transaction_quantity WHERE PartID = $part_id";
-                $conn->query($update_inventory_sql);
-            } else {
-                $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $transaction_quantity WHERE PartID = $part_id";
-                $conn->query($update_inventory_sql);
-            }
-        }
         
     // If 'update_id' is empty, we are INSERTING a new record
     } else {
@@ -122,38 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $insert_record_sql = "INSERT INTO Category (CategoryName) VALUES ($CategoryName)";
         $conn->query($insert_record_sql);
         
-        // Apply inventory math for the brand new transaction
-        if ("Category" === "StockTransaction") {
-            $transaction_type = $_POST['TransactionType'];
-            $transaction_quantity = (int)$_POST['Quantity'];
-            $part_id = (int)$_POST['PartID'];
-            
-            $check_inventory_sql = "SELECT * FROM Inventory WHERE PartID = $part_id";
-            $inventory_check_result = $conn->query($check_inventory_sql);
-            
-            if ($inventory_check_result) {
-                // If the part is already in the inventory table, update its quantity
-                if ($inventory_check_result->num_rows > 0) {
-                    if ($transaction_type === 'Sale') {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    } else {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    }
-                } else {
-                    // If the part is NOT in the inventory yet, create a new row for it
-                    $initial_quantity = 0;
-                    if ($transaction_type === 'Sale') {
-                        $initial_quantity = -$transaction_quantity;
-                    } else {
-                        $initial_quantity = $transaction_quantity;
-                    }
-                    $insert_inventory_sql = "INSERT INTO Inventory (PartID, QuantityOnHand, ReservedQuantity) VALUES ($part_id, $initial_quantity, 0)";
-                    $conn->query($insert_inventory_sql);
-                }
-            }
-        }
     }
     
     // Reload the page

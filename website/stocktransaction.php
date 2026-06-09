@@ -49,7 +49,6 @@ if (isset($_GET['delete'])) {
     $id_to_delete = (int)$_GET['delete'];
     
     // Reverse inventory math if we are deleting a stock transaction
-    if ("StockTransaction" === "StockTransaction") {
         $get_old_transaction_sql = "SELECT * FROM StockTransaction WHERE TransactionID = $id_to_delete";
         $transaction_result = $conn->query($get_old_transaction_sql);
         if ($transaction_result) {
@@ -70,9 +69,7 @@ if (isset($_GET['delete'])) {
                         $conn->query($update_inventory_sql);
                     }
                 }
-            }
         }
-    }
     
     // Perform the actual deletion
     $delete_query = "DELETE FROM StockTransaction WHERE TransactionID = $id_to_delete";
@@ -159,7 +156,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $id_to_update = (int)$_POST['update_id'];
         
         // Before updating a stock transaction, reverse its old math from the inventory
-        if ("StockTransaction" === "StockTransaction") {
             $get_old_transaction_sql = "SELECT * FROM StockTransaction WHERE TransactionID = $id_to_update";
             $transaction_result = $conn->query($get_old_transaction_sql);
             if ($transaction_result) {
@@ -178,14 +174,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     }
                 }
             }
-        }
         
         // Update the actual record
         $update_record_sql = "UPDATE StockTransaction SET TransactionType = $TransactionType, Quantity = $Quantity, TransactionDate = $TransactionDate, Notes = $Notes, PartID = $PartID, SupplierID = $SupplierID, UserID = $UserID, ReferenceNumber = $ReferenceNumber WHERE TransactionID = $id_to_update";
         $conn->query($update_record_sql);
         
         // Apply the NEW inventory math for the updated transaction
-        if ("StockTransaction" === "StockTransaction") {
             $transaction_type = $_POST['TransactionType'];
             $transaction_quantity = (int)$_POST['Quantity'];
             $part_id = (int)$_POST['PartID'];
@@ -197,7 +191,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $transaction_quantity WHERE PartID = $part_id";
                 $conn->query($update_inventory_sql);
             }
-        }
         
     // If 'update_id' is empty, we are INSERTING a new record
     } else {
@@ -206,7 +199,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $conn->query($insert_record_sql);
         
         // Apply inventory math for the brand new transaction
-        if ("StockTransaction" === "StockTransaction") {
             $transaction_type = $_POST['TransactionType'];
             $transaction_quantity = (int)$_POST['Quantity'];
             $part_id = (int)$_POST['PartID'];
@@ -236,7 +228,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $conn->query($insert_inventory_sql);
                 }
             }
-        }
     }
     
         // Reload the page

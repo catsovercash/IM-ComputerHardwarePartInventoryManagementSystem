@@ -20,6 +20,26 @@ if ($part_result) {
     }
 }
 
+// Fetch categories for the dropdown menu
+$categories = array();
+$category_sql = 'SELECT CategoryID, CategoryName FROM Category';
+$category_result = $conn->query($category_sql);
+if ($category_result) {
+    while ($row = $category_result->fetch_assoc()) {
+        $categories[] = $row;
+    }
+}
+
+// Fetch manufacturers for the dropdown menu
+$manufacturers = array();
+$manufacturer_sql = 'SELECT ManufacturerID, ManufacturerName FROM Manufacturer';
+$manufacturer_result = $conn->query($manufacturer_sql);
+if ($manufacturer_result) {
+    while ($row = $manufacturer_result->fetch_assoc()) {
+        $manufacturers[] = $row;
+    }
+}
+
 
 // --- CHECK IF EDITING ---
 // If 'edit' is in the URL, fetch the record so we can fill the form
@@ -175,22 +195,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     exit;
 }
 
-// --- HANDLE SEARCH BAR ---
+// --- HANDLE SEARCH BAR & FILTERS ---
 $search_query = '';
+$filter_category = '';
+$filter_manufacturer = '';
+
 if (isset($_GET['search'])) {
     $search_query = $_GET['search'];
 }
+if (isset($_GET['category_id'])) {
+    $filter_category = $_GET['category_id'];
+}
+if (isset($_GET['manufacturer_id'])) {
+    $filter_manufacturer = $_GET['manufacturer_id'];
+}
 
 $search_keyword = $conn->real_escape_string($search_query);
+$cat_id_safe = $conn->real_escape_string($filter_category);
+$mfg_id_safe = $conn->real_escape_string($filter_manufacturer);
+
+$where_conditions = [];
+
+if ($search_keyword != '') {
+    $where_conditions[] = "(" . "Inventory.InventoryID LIKE '%$search_keyword%'" . " OR " . "Part.PartName LIKE '%$search_keyword%'" . " OR " . "Inventory.QuantityOnHand LIKE '%$search_keyword%'" . " OR " . "Category.CategoryName LIKE '%$search_keyword%'" . " OR " . "Manufacturer.ManufacturerName LIKE '%$search_keyword%'" . ")";
+}
+if ($cat_id_safe != '') {
+    $where_conditions[] = "Part.CategoryID = '$cat_id_safe'";
+}
+if ($mfg_id_safe != '') {
+    $where_conditions[] = "Part.ManufacturerID = '$mfg_id_safe'";
+}
 
 $where_sql = "";
-if ($search_keyword != '') {
-    // Search across multiple columns using the LIKE operator
-    $where_sql = " WHERE (" . "Inventory.InventoryID LIKE '%$search_keyword%'" . " OR " . "Part.PartName LIKE '%$search_keyword%'" . " OR " . "Inventory.QuantityOnHand LIKE '%$search_keyword%'" . ")";
+if (count($where_conditions) > 0) {
+    $where_sql = " WHERE " . implode(" AND ", $where_conditions);
 }
 
 // Combine query parts and fetch the final results for the table
-$final_query = "SELECT Inventory.*, Part.PartName FROM Inventory LEFT JOIN Part ON Inventory.PartID = Part.PartID" . $where_sql . "";
+$final_query = "SELECT Inventory.*, Part.PartName, Category.CategoryName, Manufacturer.ManufacturerName 
+                FROM Inventory 
+                LEFT JOIN Part ON Inventory.PartID = Part.PartID
+                LEFT JOIN Category ON Part.CategoryID = Category.CategoryID
+                LEFT JOIN Manufacturer ON Part.ManufacturerID = Manufacturer.ManufacturerID" . $where_sql . "";
 $result = $conn->query($final_query);
 
 ?>
@@ -317,10 +363,24 @@ $result = $conn->query($final_query);
 
         <div class="card toolbar-card">
             <h3 class="toolbar-title">Records List</h3>
-            <form method="GET" class="search-form">
-                <input type="text" name="search" placeholder="Search..." value="<?= htmlspecialchars($search_query) ?>" class="search-input">
-                <button type="submit" class="btn-search">Search</button>
-                <?php if($search_query != ''): ?>
+            <form method="GET" class="search-form" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <select name="category_id" class="search-input" style="flex: 1; min-width: 150px;">
+                    <option value="">-- All Categories --</option>
+                    <?php foreach($categories as $cat): ?>
+                        <option value="<?= $cat['CategoryID'] ?>" <?= ($filter_category == $cat['CategoryID']) ? 'selected' : '' ?>><?= htmlspecialchars($cat['CategoryName']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                
+                <select name="manufacturer_id" class="search-input" style="flex: 1; min-width: 150px;">
+                    <option value="">-- All Manufacturers --</option>
+                    <?php foreach($manufacturers as $mfg): ?>
+                        <option value="<?= $mfg['ManufacturerID'] ?>" <?= ($filter_manufacturer == $mfg['ManufacturerID']) ? 'selected' : '' ?>><?= htmlspecialchars($mfg['ManufacturerName']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+
+                <input type="text" name="search" placeholder="Search..." value="<?= htmlspecialchars($search_query) ?>" class="search-input" style="flex: 2; min-width: 200px;">
+                <button type="submit" class="btn-search">Filter</button>
+                <?php if($search_query != '' || $filter_category != '' || $filter_manufacturer != ''): ?>
                 <a href="inventory.php"><button type="button" class="btn-outline btn-clear">Clear</button></a>
                 <?php endif; ?>
             </form>
@@ -330,7 +390,7 @@ $result = $conn->query($final_query);
             <table>
                 <thead>
                     <tr>
-                        <th>InventoryID</th><th>PartName</th><th>QuantityOnHand</th><th>ReservedQuantity</th>
+                        <th>InventoryID</th><th>PartName</th><th>Category</th><th>Manufacturer</th><th>QuantityOnHand</th><th>ReservedQuantity</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
@@ -355,6 +415,22 @@ $result = $conn->query($final_query);
                             $table_cell_value = "";
                             if (isset($row['PartName'])) {
                                 $table_cell_value = htmlspecialchars($row['PartName']);
+                            }
+                            ?>
+                            <td><?= $table_cell_value ?></td>
+        
+                            <?php
+                            $table_cell_value = "";
+                            if (isset($row['CategoryName'])) {
+                                $table_cell_value = htmlspecialchars($row['CategoryName']);
+                            }
+                            ?>
+                            <td><?= $table_cell_value ?></td>
+                            
+                            <?php
+                            $table_cell_value = "";
+                            if (isset($row['ManufacturerName'])) {
+                                $table_cell_value = htmlspecialchars($row['ManufacturerName']);
                             }
                             ?>
                             <td><?= $table_cell_value ?></td>

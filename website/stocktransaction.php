@@ -84,11 +84,57 @@ if (isset($_GET['delete'])) {
 }
 
 // --- CHECK IF SAVING/UPDATING FORM ---
+$error_message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
-    // Grab form inputs securely
-    $safe_value = $conn->real_escape_string($_POST['TransactionType']);
-    $TransactionType = "'" . $safe_value . "'";
+    $transaction_type_val = $_POST['TransactionType'];
+    $transaction_quantity_val = (int)$_POST['Quantity'];
+    $part_id_val = (int)$_POST['PartID'];
+    
+    if ($transaction_quantity_val <= 0) {
+        $error_message = "Quantity must be greater than 0.";
+    } else {
+        $current_inventory = 0;
+        $check_inv_sql = "SELECT QuantityOnHand FROM Inventory WHERE PartID = $part_id_val";
+        $inv_res = $conn->query($check_inv_sql);
+        if ($inv_res && $inv_res->num_rows > 0) {
+            $inv_row = $inv_res->fetch_assoc();
+            $current_inventory = (int)$inv_row['QuantityOnHand'];
+        }
+        
+        if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
+            $id_to_update = (int)$_POST['update_id'];
+            $get_old_tx_sql = "SELECT TransactionType, Quantity, PartID FROM StockTransaction WHERE TransactionID = $id_to_update";
+            $old_tx_res = $conn->query($get_old_tx_sql);
+            if ($old_tx_res && $old_tx_res->num_rows > 0) {
+                $old_tx = $old_tx_res->fetch_assoc();
+                if ($old_tx['PartID'] == $part_id_val) {
+                    $old_type = $old_tx['TransactionType'];
+                    $old_qty = (int)$old_tx['Quantity'];
+                    if ($old_type === 'Sale') {
+                        $current_inventory += $old_qty;
+                    } else {
+                        $current_inventory -= $old_qty;
+                    }
+                }
+            }
+        }
+        
+        if ($transaction_type_val === 'Sale') {
+            $new_inventory = $current_inventory - $transaction_quantity_val;
+        } else {
+            $new_inventory = $current_inventory + $transaction_quantity_val;
+        }
+        
+        if ($new_inventory < 0) {
+            $error_message = "Transaction failed: Not enough parts in inventory.";
+        }
+    }
+    
+    if ($error_message === '') {
+        // Grab form inputs securely
+        $safe_value = $conn->real_escape_string($_POST['TransactionType']);
+        $TransactionType = "'" . $safe_value . "'";
     $safe_value = $conn->real_escape_string($_POST['Quantity']);
     $Quantity = "'" . $safe_value . "'";
     $TransactionDate = "'" . date('Y-m-d H:i:s') . "'";
@@ -193,9 +239,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Reload the page
-    header("Location: stocktransaction.php");
-    exit;
+        // Reload the page
+        header("Location: stocktransaction.php");
+        exit;
+    }
 }
 
 // --- HANDLE SEARCH BAR ---
@@ -259,6 +306,11 @@ $result = $conn->query($final_query);
         </div>
         
         <div class="card">
+            <?php 
+            if (isset($error_message) && $error_message != '') {
+                echo '<div class="error-msg">' . htmlspecialchars($error_message) . '</div>';
+            }
+            ?>
             <h3>
             <?php
             // Change form title depending on whether we are editing or creating

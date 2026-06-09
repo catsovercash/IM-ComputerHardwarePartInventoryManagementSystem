@@ -70,6 +70,7 @@ if (isset($_GET['delete'])) {
                     }
                 }
         }
+        }
     
     // Perform the actual deletion
     $delete_query = "DELETE FROM StockTransaction WHERE TransactionID = $id_to_delete";

@@ -9,6 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 // Connect to database
 include 'db.php';
 
+$error_message = ""; // Variable to hold validation errors
 
 // Fetch parts for the dropdown menu
 $parts = array();
@@ -48,139 +49,170 @@ if (isset($_GET['edit'])) {
 if (isset($_GET['delete'])) {
     $id_to_delete = (int)$_GET['delete'];
     
-    // Reverse inventory math if we are deleting a stock transaction
-        $get_old_transaction_sql = "SELECT * FROM StockTransaction WHERE TransactionID = $id_to_delete";
-        $transaction_result = $conn->query($get_old_transaction_sql);
-        if ($transaction_result) {
-            $old_transaction = $transaction_result->fetch_assoc();
-            if ($old_transaction) {
-                $transaction_type = $old_transaction['TransactionType'];
-                $transaction_quantity = (int)$old_transaction['Quantity'];
-                $part_id = (int)$old_transaction['PartID'];
-                
-                // If we delete a Sale, we get the parts back (add them)
-                if ($transaction_type === 'Sale') {
-                    $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $transaction_quantity WHERE PartID = $part_id";
-                    $conn->query($update_inventory_sql);
-                } else {
-                    // If we delete a Receipt, we lose the parts (subtract them)
-                    if ($transaction_type === 'Receipt' || $transaction_type === 'Adjustment') {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    }
+    $can_delete = true;
+    
+    // Validate that deleting won't drop inventory below 0
+    $get_old_transaction_sql = "SELECT * FROM StockTransaction WHERE TransactionID = $id_to_delete";
+    $transaction_result = $conn->query($get_old_transaction_sql);
+    if ($transaction_result && $transaction_result->num_rows > 0) {
+        $old_transaction = $transaction_result->fetch_assoc();
+        $transaction_type = $old_transaction['TransactionType'];
+        $transaction_quantity = (int)$old_transaction['Quantity'];
+        $part_id = (int)$old_transaction['PartID'];
+        
+        // Deleting a receipt or positive adjustment subtracts from inventory. Check if it drops below 0.
+        if ($transaction_type === 'Receipt' || $transaction_type === 'Adjustment') {
+            $inv_res = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $part_id");
+            if ($inv_res && $inv_res->num_rows > 0) {
+                $curr_qty = (int)$inv_res->fetch_assoc()['QuantityOnHand'];
+                if (($curr_qty - $transaction_quantity) < 0) {
+                    $can_delete = false;
+                    $error_message = "Cannot delete record: Reversing this transaction would drop inventory below 0.";
                 }
+            }
         }
+        
+        if ($can_delete) {
+            // Reverse inventory math if we are deleting a stock transaction
+            if ($transaction_type === 'Sale') {
+                $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $transaction_quantity WHERE PartID = $part_id";
+                $conn->query($update_inventory_sql);
+            } else {
+                if ($transaction_type === 'Receipt' || $transaction_type === 'Adjustment') {
+                    $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $transaction_quantity WHERE PartID = $part_id";
+                    $conn->query($update_inventory_sql);
+                }
+            }
+            
+            // Perform the actual deletion
+            $delete_query = "DELETE FROM StockTransaction WHERE TransactionID = $id_to_delete";
+            $conn->query($delete_query);
+            
+            // Reload the page
+            header("Location: stocktransaction.php"); 
+            exit;
         }
-    
-    // Perform the actual deletion
-    $delete_query = "DELETE FROM StockTransaction WHERE TransactionID = $id_to_delete";
-    $conn->query($delete_query);
-    
-    // Reload the page
-    header("Location: stocktransaction.php"); 
-    exit;
+    }
 }
 
 // --- CHECK IF SAVING/UPDATING FORM ---
-$error_message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     $transaction_type_val = $_POST['TransactionType'];
-    $transaction_quantity_val = (int)$_POST['Quantity'];
-    $part_id_val = (int)$_POST['PartID'];
+    $quantity_val = (int)$_POST['Quantity'];
+    $new_part_id = (int)$_POST['PartID'];
     
-    if ($transaction_quantity_val <= 0) {
-        $error_message = "Quantity must be greater than 0.";
-    } else {
-        $current_inventory = 0;
-        $check_inv_sql = "SELECT QuantityOnHand FROM Inventory WHERE PartID = $part_id_val";
-        $inv_res = $conn->query($check_inv_sql);
-        if ($inv_res && $inv_res->num_rows > 0) {
-            $inv_row = $inv_res->fetch_assoc();
-            $current_inventory = (int)$inv_row['QuantityOnHand'];
-        }
-        
-        if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
-            $id_to_update = (int)$_POST['update_id'];
-            $get_old_tx_sql = "SELECT TransactionType, Quantity, PartID FROM StockTransaction WHERE TransactionID = $id_to_update";
-            $old_tx_res = $conn->query($get_old_tx_sql);
-            if ($old_tx_res && $old_tx_res->num_rows > 0) {
-                $old_tx = $old_tx_res->fetch_assoc();
-                if ($old_tx['PartID'] == $part_id_val) {
-                    $old_type = $old_tx['TransactionType'];
-                    $old_qty = (int)$old_tx['Quantity'];
-                    if ($old_type === 'Sale') {
-                        $current_inventory += $old_qty;
-                    } else {
-                        $current_inventory -= $old_qty;
+    $is_valid = true;
+
+    // 1. Prevent negative values on anything but Adjustment
+    if ($transaction_type_val !== 'Adjustment' && $quantity_val < 0) {
+        $error_message = "Only Adjustments can have a negative quantity.";
+        $is_valid = false;
+    }
+
+    // 2. Validate that transactions won't drop inventory below 0
+    if ($is_valid) {
+        $id_to_update = (isset($_POST['update_id']) && $_POST['update_id'] != '') ? (int)$_POST['update_id'] : 0;
+        $new_net_change = ($transaction_type_val === 'Sale') ? -$quantity_val : $quantity_val;
+
+        if ($id_to_update > 0) {
+            // Validating an UPDATE
+            $get_old_sql = "SELECT TransactionType, Quantity, PartID FROM StockTransaction WHERE TransactionID = $id_to_update";
+            $old_res = $conn->query($get_old_sql);
+            if ($old_res && $old_res->num_rows > 0) {
+                $old_tx = $old_res->fetch_assoc();
+                $old_part_id = (int)$old_tx['PartID'];
+                $old_qty = (int)$old_tx['Quantity'];
+                $old_type = $old_tx['TransactionType'];
+                $old_net_change = ($old_type === 'Sale') ? -$old_qty : $old_qty;
+
+                $old_curr_qty = 0;
+                $res1 = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $old_part_id");
+                if ($res1 && $res1->num_rows > 0) { $old_curr_qty = (int)$res1->fetch_assoc()['QuantityOnHand']; }
+
+                $new_curr_qty = 0;
+                $res2 = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $new_part_id");
+                if ($res2 && $res2->num_rows > 0) { $new_curr_qty = (int)$res2->fetch_assoc()['QuantityOnHand']; }
+
+                if ($old_part_id === $new_part_id) {
+                    $combined = $old_curr_qty - $old_net_change + $new_net_change;
+                    if ($combined < 0) {
+                        $error_message = "Cannot save: Transaction would drop inventory below 0 (Projected: $combined).";
+                        $is_valid = false;
+                    }
+                } else {
+                    if ($old_curr_qty - $old_net_change < 0) {
+                        $error_message = "Updating this drops the original part's inventory below 0.";
+                        $is_valid = false;
+                    } elseif ($new_curr_qty + $new_net_change < 0) {
+                        $error_message = "Cannot save: Transaction drops the new part's inventory below 0.";
+                        $is_valid = false;
                     }
                 }
             }
-        }
-        
-        if ($transaction_type_val === 'Sale') {
-            $new_inventory = $current_inventory - $transaction_quantity_val;
         } else {
-            $new_inventory = $current_inventory + $transaction_quantity_val;
-        }
-        
-        if ($new_inventory < 0) {
-            $error_message = "Transaction failed: Not enough parts in inventory.";
+            // Validating an INSERT
+            $curr_qty = 0;
+            $inv_res = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $new_part_id");
+            if ($inv_res && $inv_res->num_rows > 0) {
+                $curr_qty = (int)$inv_res->fetch_assoc()['QuantityOnHand'];
+            }
+            if ($curr_qty + $new_net_change < 0) {
+                $error_message = "Cannot save: Transaction would drop inventory below 0.";
+                $is_valid = false;
+            }
         }
     }
-    
-    if ($error_message === '') {
+
+    if ($is_valid) {
         // Grab form inputs securely
         $safe_value = $conn->real_escape_string($_POST['TransactionType']);
         $TransactionType = "'" . $safe_value . "'";
-    $safe_value = $conn->real_escape_string($_POST['Quantity']);
-    $Quantity = "'" . $safe_value . "'";
-    $TransactionDate = "'" . date('Y-m-d H:i:s') . "'";
-    $safe_value = $conn->real_escape_string($_POST['Notes']);
-    $Notes = "'" . $safe_value . "'";
-    $safe_value = $conn->real_escape_string($_POST['PartID']);
-    $PartID = "'" . $safe_value . "'";
-    // Handle SupplierID safely
-    if (empty($_POST['SupplierID'])) {
-        $SupplierID = 'NULL';
-    } else {
-        $safe_value = $conn->real_escape_string($_POST['SupplierID']);
-        $SupplierID = "'" . $safe_value . "'";
-    }
-    $UserID = $_SESSION['user_id']; // Automatically assign the logged-in user
-    $safe_value = $conn->real_escape_string($_POST['ReferenceNumber']);
-    $ReferenceNumber = "'" . $safe_value . "'";
-
-
-    // If 'update_id' exists, we are UPDATING an old record
-    if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
-        $id_to_update = (int)$_POST['update_id'];
+        $safe_value = $conn->real_escape_string($_POST['Quantity']);
+        $Quantity = "'" . $safe_value . "'";
+        $TransactionDate = "'" . date('Y-m-d H:i:s') . "'";
+        $safe_value = $conn->real_escape_string($_POST['Notes']);
+        $Notes = "'" . $safe_value . "'";
+        $safe_value = $conn->real_escape_string($_POST['PartID']);
+        $PartID = "'" . $safe_value . "'";
         
-        // Before updating a stock transaction, reverse its old math from the inventory
+        if (empty($_POST['SupplierID'])) {
+            $SupplierID = 'NULL';
+        } else {
+            $safe_value = $conn->real_escape_string($_POST['SupplierID']);
+            $SupplierID = "'" . $safe_value . "'";
+        }
+        $UserID = $_SESSION['user_id'];
+        $safe_value = $conn->real_escape_string($_POST['ReferenceNumber']);
+        $ReferenceNumber = "'" . $safe_value . "'";
+
+        // If 'update_id' exists, we are UPDATING an old record
+        if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
+            $id_to_update = (int)$_POST['update_id'];
+            
+            // Reversing old math from inventory
             $get_old_transaction_sql = "SELECT * FROM StockTransaction WHERE TransactionID = $id_to_update";
             $transaction_result = $conn->query($get_old_transaction_sql);
-            if ($transaction_result) {
+            if ($transaction_result && $transaction_result->num_rows > 0) {
                 $old_transaction = $transaction_result->fetch_assoc();
-                if ($old_transaction) {
-                    $old_transaction_type = $old_transaction['TransactionType'];
-                    $old_transaction_quantity = (int)$old_transaction['Quantity'];
-                    $part_id = (int)$old_transaction['PartID'];
-                    
-                    if ($old_transaction_type === 'Sale') {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $old_transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    } else {
-                        $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $old_transaction_quantity WHERE PartID = $part_id";
-                        $conn->query($update_inventory_sql);
-                    }
+                $old_transaction_type = $old_transaction['TransactionType'];
+                $old_transaction_quantity = (int)$old_transaction['Quantity'];
+                $part_id = (int)$old_transaction['PartID'];
+                
+                if ($old_transaction_type === 'Sale') {
+                    $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $old_transaction_quantity WHERE PartID = $part_id";
+                    $conn->query($update_inventory_sql);
+                } else {
+                    $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $old_transaction_quantity WHERE PartID = $part_id";
+                    $conn->query($update_inventory_sql);
                 }
             }
-        
-        // Update the actual record
-        $update_record_sql = "UPDATE StockTransaction SET TransactionType = $TransactionType, Quantity = $Quantity, TransactionDate = $TransactionDate, Notes = $Notes, PartID = $PartID, SupplierID = $SupplierID, UserID = $UserID, ReferenceNumber = $ReferenceNumber WHERE TransactionID = $id_to_update";
-        $conn->query($update_record_sql);
-        
-        // Apply the NEW inventory math for the updated transaction
+            
+            // Update the record
+            $update_record_sql = "UPDATE StockTransaction SET TransactionType = $TransactionType, Quantity = $Quantity, TransactionDate = $TransactionDate, Notes = $Notes, PartID = $PartID, SupplierID = $SupplierID, UserID = $UserID, ReferenceNumber = $ReferenceNumber WHERE TransactionID = $id_to_update";
+            $conn->query($update_record_sql);
+            
+            // Apply NEW inventory math
             $transaction_type = $_POST['TransactionType'];
             $transaction_quantity = (int)$_POST['Quantity'];
             $part_id = (int)$_POST['PartID'];
@@ -192,14 +224,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand + $transaction_quantity WHERE PartID = $part_id";
                 $conn->query($update_inventory_sql);
             }
-        
-    // If 'update_id' is empty, we are INSERTING a new record
-    } else {
-        // Create the record
-        $insert_record_sql = "INSERT INTO StockTransaction (TransactionType, Quantity, TransactionDate, Notes, PartID, SupplierID, UserID, ReferenceNumber) VALUES ($TransactionType, $Quantity, $TransactionDate, $Notes, $PartID, $SupplierID, $UserID, $ReferenceNumber)";
-        $conn->query($insert_record_sql);
-        
-        // Apply inventory math for the brand new transaction
+            
+        } else {
+            // INSERTING a new record
+            $insert_record_sql = "INSERT INTO StockTransaction (TransactionType, Quantity, TransactionDate, Notes, PartID, SupplierID, UserID, ReferenceNumber) VALUES ($TransactionType, $Quantity, $TransactionDate, $Notes, $PartID, $SupplierID, $UserID, $ReferenceNumber)";
+            $conn->query($insert_record_sql);
+            
+            // Apply inventory math
             $transaction_type = $_POST['TransactionType'];
             $transaction_quantity = (int)$_POST['Quantity'];
             $part_id = (int)$_POST['PartID'];
@@ -208,7 +239,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $inventory_check_result = $conn->query($check_inventory_sql);
             
             if ($inventory_check_result) {
-                // If the part is already in the inventory table, update its quantity
                 if ($inventory_check_result->num_rows > 0) {
                     if ($transaction_type === 'Sale') {
                         $update_inventory_sql = "UPDATE Inventory SET QuantityOnHand = QuantityOnHand - $transaction_quantity WHERE PartID = $part_id";
@@ -218,20 +248,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $conn->query($update_inventory_sql);
                     }
                 } else {
-                    // If the part is NOT in the inventory yet, create a new row for it
-                    $initial_quantity = 0;
-                    if ($transaction_type === 'Sale') {
-                        $initial_quantity = -$transaction_quantity;
-                    } else {
-                        $initial_quantity = $transaction_quantity;
-                    }
+                    $initial_quantity = ($transaction_type === 'Sale') ? -$transaction_quantity : $transaction_quantity;
                     $insert_inventory_sql = "INSERT INTO Inventory (PartID, QuantityOnHand, ReservedQuantity) VALUES ($part_id, $initial_quantity, 0)";
                     $conn->query($insert_inventory_sql);
                 }
             }
-    }
-    
-        // Reload the page
+        }
+        
+        // Reload the page on success
         header("Location: stocktransaction.php");
         exit;
     }
@@ -247,11 +271,9 @@ $search_keyword = $conn->real_escape_string($search_query);
 
 $where_sql = "";
 if ($search_keyword != '') {
-    // Search across multiple columns using the LIKE operator
-    $where_sql = " WHERE (" . "StockTransaction.TransactionID LIKE '%$search_keyword%'" . " OR " . "StockTransaction.TransactionType LIKE '%$search_keyword%'" . " OR " . "Part.PartName LIKE '%$search_keyword%'" . " OR " . "Supplier.SupplierName LIKE '%$search_keyword%'" . " OR " . "Users.FullName LIKE '%$search_keyword%'" . " OR " . "StockTransaction.UserID LIKE '%$search_keyword%'" . " OR " . "StockTransaction.ReferenceNumber LIKE '%$search_keyword%'" . " OR " . "StockTransaction.Notes LIKE '%$search_keyword%'" . ")";
+    $where_sql = " WHERE (" . "StockTransaction.TransactionID LIKE '%$search_keyword%'" . " OR " . "StockTransaction.TransactionType LIKE '%$search_keyword%'" . " OR " . "Part.PartName LIKE '%$search_keyword%'" . " OR " . "Supplier.SupplierName LIKE '%$search_keyword%'" . " OR " . "Users.FullName LIKE '%$search_keyword%'" . " OR " . "StockTransaction.ReferenceNumber LIKE '%$search_keyword%'" . " OR " . "StockTransaction.Notes LIKE '%$search_keyword%'" . ")";
 }
 
-// Combine query parts and fetch the final results for the table
 $final_query = "SELECT StockTransaction.*, Part.PartName, Supplier.SupplierName, Users.FullName FROM StockTransaction LEFT JOIN Part ON StockTransaction.PartID = Part.PartID LEFT JOIN Supplier ON StockTransaction.SupplierID = Supplier.SupplierID LEFT JOIN Users ON StockTransaction.UserID = Users.UserID" . $where_sql . " ORDER BY TransactionDate DESC";
 $result = $conn->query($final_query);
 
@@ -298,14 +320,8 @@ $result = $conn->query($final_query);
         </div>
         
         <div class="card">
-            <?php 
-            if (isset($error_message) && $error_message != '') {
-                echo '<div class="error-msg">' . htmlspecialchars($error_message) . '</div>';
-            }
-            ?>
             <h3>
             <?php
-            // Change form title depending on whether we are editing or creating
             if (isset($edit_row)) {
                 echo 'Edit Record';
             } else {
@@ -313,16 +329,21 @@ $result = $conn->query($final_query);
             }
             ?>
             </h3>
+
+            <?php if (!empty($error_message)): ?>
+                <div style="background-color: #f8d7da; color: #721c24; padding: 12px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #f5c6cb;">
+                    <?= htmlspecialchars($error_message) ?>
+                </div>
+            <?php endif; ?>
+
             <form method="POST">
                 <?php
-                // Hidden input to pass the ID if we are editing
                 $hidden_id = "";
                 if (isset($edit_row)) {
                     $hidden_id = $edit_row['TransactionID'];
                 }
                 ?>
                 <input type="hidden" name="update_id" value="<?= $hidden_id ?>">
-                
                 
                 <div class="form-group">
                     <label>Transaction Type</label>
@@ -347,18 +368,23 @@ $result = $conn->query($final_query);
                     <label>Quantity</label>
                     <?php
                     $input_value = "";
-                    if (isset($edit_row)) {
+                    if (isset($_POST['Quantity'])) {
+                        // Persist value if there's an error
+                        $input_value = htmlspecialchars($_POST['Quantity']);
+                    } elseif (isset($edit_row)) {
                         $input_value = htmlspecialchars($edit_row['Quantity']);
                     }
                     ?>
-                    <input type="text" name="Quantity" value="<?= $input_value ?>" required>
+                    <input type="number" step="1" name="Quantity" value="<?= $input_value ?>" required>
                 </div>
             
                 <div class="form-group">
                     <label>Notes</label>
                     <?php
                     $input_value = "";
-                    if (isset($edit_row)) {
+                    if (isset($_POST['Notes'])) {
+                        $input_value = htmlspecialchars($_POST['Notes']);
+                    } elseif (isset($edit_row)) {
                         $input_value = htmlspecialchars($edit_row['Notes']);
                     }
                     ?>
@@ -372,10 +398,10 @@ $result = $conn->query($final_query);
                         <?php foreach($parts as $item): ?>
                             <?php
                             $selected_attribute = "";
-                            if (isset($edit_row)) {
-                                if ($edit_row['PartID'] == $item['PartID']) {
-                                    $selected_attribute = "selected";
-                                }
+                            if (isset($_POST['PartID']) && $_POST['PartID'] == $item['PartID']) {
+                                $selected_attribute = "selected";
+                            } elseif (isset($edit_row) && $edit_row['PartID'] == $item['PartID']) {
+                                $selected_attribute = "selected";
                             }
                             ?>
                             <option value="<?= $item['PartID'] ?>" <?= $selected_attribute ?>><?= htmlspecialchars($item['PartName']) ?></option>
@@ -390,10 +416,10 @@ $result = $conn->query($final_query);
                         <?php foreach($suppliers as $item): ?>
                             <?php
                             $selected_attribute = "";
-                            if (isset($edit_row)) {
-                                if ($edit_row['SupplierID'] == $item['SupplierID']) {
-                                    $selected_attribute = "selected";
-                                }
+                            if (isset($_POST['SupplierID']) && $_POST['SupplierID'] == $item['SupplierID']) {
+                                $selected_attribute = "selected";
+                            } elseif (isset($edit_row) && $edit_row['SupplierID'] == $item['SupplierID']) {
+                                $selected_attribute = "selected";
                             }
                             ?>
                             <option value="<?= $item['SupplierID'] ?>" <?= $selected_attribute ?>><?= htmlspecialchars($item['SupplierName']) ?></option>
@@ -405,14 +431,15 @@ $result = $conn->query($final_query);
                     <label>ReferenceNumber</label>
                     <?php
                     $input_value = "";
-                    if (isset($edit_row)) {
+                    if (isset($_POST['ReferenceNumber'])) {
+                        $input_value = htmlspecialchars($_POST['ReferenceNumber']);
+                    } elseif (isset($edit_row)) {
                         $input_value = htmlspecialchars($edit_row['ReferenceNumber']);
                     }
                     ?>
                     <input type="text" name="ReferenceNumber" value="<?= $input_value ?>" required>
                 </div>
             
-                
                 <div class="form-group form-actions">
                     <?php if(isset($edit_row)): ?>
                     <a href="stocktransaction.php" class="btn-cancel">Cancel</a>
@@ -445,93 +472,26 @@ $result = $conn->query($final_query);
             <table>
                 <thead>
                     <tr>
-                        <th>TransactionID</th><th>TransactionType</th><th>Quantity</th><th>TransactionDate</th><th>Notes</th><th>PartName</th><th>SupplierName</th><th>Handled By</th><th>ReferenceNumber</th>
+                        <th>TransactionID</th><th>TransactionType</th><th>Quantity</th><th>TransactionDate</th><th>Notes</th><th>PartName</th><th>SupplierName</th><th>FullName</th><th>ReferenceNumber</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
-                    // Display the database records inside the HTML table
                     if ($result) {
                         if ($result->num_rows > 0) {
                             while ($row = $result->fetch_assoc()) {
                                 ?>
                                 <tr>
-                                    
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['TransactionID'])) {
-                                $table_cell_value = htmlspecialchars($row['TransactionID']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['TransactionType'])) {
-                                $table_cell_value = htmlspecialchars($row['TransactionType']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['Quantity'])) {
-                                $table_cell_value = htmlspecialchars($row['Quantity']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['TransactionDate'])) {
-                                $table_cell_value = htmlspecialchars($row['TransactionDate']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['Notes'])) {
-                                $table_cell_value = htmlspecialchars($row['Notes']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['PartName'])) {
-                                $table_cell_value = htmlspecialchars($row['PartName']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['SupplierName'])) {
-                                $table_cell_value = htmlspecialchars($row['SupplierName']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['FullName']) && $row['FullName'] != '') {
-                                $table_cell_value = htmlspecialchars($row['FullName'] . " (" . $row['UserID'] . ")");
-                            } else if (isset($row['UserID'])) {
-                                $table_cell_value = htmlspecialchars("User ID: " . $row['UserID']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
-                            <?php
-                            $table_cell_value = "";
-                            if (isset($row['ReferenceNumber'])) {
-                                $table_cell_value = htmlspecialchars($row['ReferenceNumber']);
-                            }
-                            ?>
-                            <td><?= $table_cell_value ?></td>
-        
+                                    <td><?= isset($row['TransactionID']) ? htmlspecialchars($row['TransactionID']) : '' ?></td>
+                                    <td><?= isset($row['TransactionType']) ? htmlspecialchars($row['TransactionType']) : '' ?></td>
+                                    <td><?= isset($row['Quantity']) ? htmlspecialchars($row['Quantity']) : '' ?></td>
+                                    <td><?= isset($row['TransactionDate']) ? htmlspecialchars($row['TransactionDate']) : '' ?></td>
+                                    <td><?= isset($row['Notes']) ? htmlspecialchars($row['Notes']) : '' ?></td>
+                                    <td><?= isset($row['PartName']) ? htmlspecialchars($row['PartName']) : '' ?></td>
+                                    <td><?= isset($row['SupplierName']) ? htmlspecialchars($row['SupplierName']) : '' ?></td>
+                                    <td><?= isset($row['FullName']) ? htmlspecialchars($row['FullName']) : '' ?></td>
+                                    <td><?= isset($row['ReferenceNumber']) ? htmlspecialchars($row['ReferenceNumber']) : '' ?></td>
                                     <td class="action-cell">
                                         <a href="?edit=<?= $row['TransactionID'] ?>"><button class="btn-outline btn-sm mr-sm">Edit</button></a>
                                         <a href="?delete=<?= $row['TransactionID'] ?>" onclick="return confirm('Are you sure you want to delete this record?')"><button class="btn-danger btn-sm">Delete</button></a>

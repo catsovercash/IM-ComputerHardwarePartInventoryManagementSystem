@@ -60,12 +60,12 @@ $recent_transactions_result = $conn->query($query_recent_transactions);
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard - IM System</title>
+    <title>Dashboard - KompyuTek</title>
     <link rel="stylesheet" href="style.css?v=<?= time() ?>">
 </head>
 <body>
     <div class="sidebar">
-        <h2>IM System.</h2>
+        <h2>KompyuTek</h2>
         <a href="index.php" class="active">Dashboard</a>
         <a href="category.php">Category</a>
         <a href="manufacturer.php">Manufacturer</a>

@@ -190,12 +190,12 @@ $result = $conn->query($final_query);
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Supplier - IM System</title>
+    <title>Supplier - KompyuTek</title>
     <link rel="stylesheet" href="style.css?v=<?= time() ?>">
 </head>
 <body>
     <div class="sidebar">
-        <h2>IM System.</h2>
+        <h2>KompyuTek</h2>
         <a href="index.php">Dashboard</a>
         <?php
         $category_nav_class = ""; if ("Supplier" == "Category") $category_nav_class = "active";

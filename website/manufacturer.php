@@ -183,12 +183,12 @@ $result = $conn->query($final_query);
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Manufacturer - IM System</title>
+    <title>Manufacturer - KompyuTek</title>
     <link rel="stylesheet" href="style.css?v=<?= time() ?>">
 </head>
 <body>
     <div class="sidebar">
-        <h2>IM System.</h2>
+        <h2>KompyuTek</h2>
         <a href="index.php">Dashboard</a>
         <?php
         $category_nav_class = ""; if ("Manufacturer" == "Category") $category_nav_class = "active";

@@ -220,12 +220,12 @@ $result = $conn->query($final_query);
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Part - IM System</title>
+    <title>Part - KompyuTek</title>
     <link rel="stylesheet" href="style.css?v=<?= time() ?>">
 </head>
 <body>
     <div class="sidebar">
-        <h2>IM System.</h2>
+        <h2>KompyuTek</h2>
         <a href="index.php">Dashboard</a>
         <?php
         $category_nav_class = ""; if ("Part" == "Category") $category_nav_class = "active";

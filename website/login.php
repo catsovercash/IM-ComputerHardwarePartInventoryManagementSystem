@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sign In - IM System</title>
+    <title>Sign In - KompyuTek</title>
     <link rel="stylesheet" href="style.css?v=<?= time() ?>">
 </head>
 <body class="login-body">

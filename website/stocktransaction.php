@@ -248,7 +248,7 @@ $search_keyword = $conn->real_escape_string($search_query);
 $where_sql = "";
 if ($search_keyword != '') {
     // Search across multiple columns using the LIKE operator
-    $where_sql = " WHERE (" . "StockTransaction.TransactionID LIKE '%$search_keyword%'" . " OR " . "StockTransaction.TransactionType LIKE '%$search_keyword%'" . " OR " . "Part.PartName LIKE '%$search_keyword%'" . " OR " . "Supplier.SupplierName LIKE '%$search_keyword%'" . " OR " . "Users.FullName LIKE '%$search_keyword%'" . " OR " . "StockTransaction.ReferenceNumber LIKE '%$search_keyword%'" . " OR " . "StockTransaction.Notes LIKE '%$search_keyword%'" . ")";
+    $where_sql = " WHERE (" . "StockTransaction.TransactionID LIKE '%$search_keyword%'" . " OR " . "StockTransaction.TransactionType LIKE '%$search_keyword%'" . " OR " . "Part.PartName LIKE '%$search_keyword%'" . " OR " . "Supplier.SupplierName LIKE '%$search_keyword%'" . " OR " . "Users.FullName LIKE '%$search_keyword%'" . " OR " . "StockTransaction.UserID LIKE '%$search_keyword%'" . " OR " . "StockTransaction.ReferenceNumber LIKE '%$search_keyword%'" . " OR " . "StockTransaction.Notes LIKE '%$search_keyword%'" . ")";
 }
 
 // Combine query parts and fetch the final results for the table
@@ -445,7 +445,7 @@ $result = $conn->query($final_query);
             <table>
                 <thead>
                     <tr>
-                        <th>TransactionID</th><th>TransactionType</th><th>Quantity</th><th>TransactionDate</th><th>Notes</th><th>PartName</th><th>SupplierName</th><th>FullName</th><th>ReferenceNumber</th>
+                        <th>TransactionID</th><th>TransactionType</th><th>Quantity</th><th>TransactionDate</th><th>Notes</th><th>PartName</th><th>SupplierName</th><th>Handled By</th><th>ReferenceNumber</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
@@ -516,8 +516,10 @@ $result = $conn->query($final_query);
         
                             <?php
                             $table_cell_value = "";
-                            if (isset($row['FullName'])) {
-                                $table_cell_value = htmlspecialchars($row['FullName']);
+                            if (isset($row['FullName']) && $row['FullName'] != '') {
+                                $table_cell_value = htmlspecialchars($row['FullName'] . " (" . $row['UserID'] . ")");
+                            } else if (isset($row['UserID'])) {
+                                $table_cell_value = htmlspecialchars("User ID: " . $row['UserID']);
                             }
                             ?>
                             <td><?= $table_cell_value ?></td>

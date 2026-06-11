@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost
--- Generation Time: Jun 09, 2026 at 10:03 AM
--- Server version: 10.4.28-MariaDB
--- PHP Version: 8.2.4
+-- Host: 127.0.0.1
+-- Generation Time: Jun 11, 2026 at 05:29 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,25 +18,25 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `ComputerPartsInventoryDB`
+-- Database: `computerpartsinventorydb`
 --
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `Category`
+-- Table structure for table `category`
 --
 
-CREATE TABLE `Category` (
+CREATE TABLE `category` (
   `CategoryID` int(11) NOT NULL,
   `CategoryName` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `Category`
+-- Dumping data for table `category`
 --
 
-INSERT INTO `Category` (`CategoryID`, `CategoryName`) VALUES
+INSERT INTO `category` (`CategoryID`, `CategoryName`) VALUES
 (1, 'Processor'),
 (2, 'Graphics Card'),
 (3, 'Motherboard'),
@@ -48,10 +48,10 @@ INSERT INTO `Category` (`CategoryID`, `CategoryName`) VALUES
 -- --------------------------------------------------------
 
 --
--- Table structure for table `Inventory`
+-- Table structure for table `inventory`
 --
 
-CREATE TABLE `Inventory` (
+CREATE TABLE `inventory` (
   `InventoryID` int(11) NOT NULL,
   `PartID` int(11) DEFAULT NULL,
   `QuantityOnHand` int(11) NOT NULL,
@@ -59,10 +59,10 @@ CREATE TABLE `Inventory` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `Inventory`
+-- Dumping data for table `inventory`
 --
 
-INSERT INTO `Inventory` (`InventoryID`, `PartID`, `QuantityOnHand`, `ReservedQuantity`) VALUES
+INSERT INTO `inventory` (`InventoryID`, `PartID`, `QuantityOnHand`, `ReservedQuantity`) VALUES
 (1, 1, 50, 5),
 (2, 2, 40, 2),
 (3, 3, 15, 2),
@@ -74,19 +74,19 @@ INSERT INTO `Inventory` (`InventoryID`, `PartID`, `QuantityOnHand`, `ReservedQua
 -- --------------------------------------------------------
 
 --
--- Table structure for table `Manufacturer`
+-- Table structure for table `manufacturer`
 --
 
-CREATE TABLE `Manufacturer` (
+CREATE TABLE `manufacturer` (
   `ManufacturerID` int(11) NOT NULL,
   `ManufacturerName` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `Manufacturer`
+-- Dumping data for table `manufacturer`
 --
 
-INSERT INTO `Manufacturer` (`ManufacturerID`, `ManufacturerName`) VALUES
+INSERT INTO `manufacturer` (`ManufacturerID`, `ManufacturerName`) VALUES
 (1, 'Intel'),
 (2, 'AMD'),
 (3, 'NVIDIA'),
@@ -98,10 +98,10 @@ INSERT INTO `Manufacturer` (`ManufacturerID`, `ManufacturerName`) VALUES
 -- --------------------------------------------------------
 
 --
--- Table structure for table `Part`
+-- Table structure for table `part`
 --
 
-CREATE TABLE `Part` (
+CREATE TABLE `part` (
   `PartID` int(11) NOT NULL,
   `SKU` varchar(255) NOT NULL,
   `PartName` varchar(255) NOT NULL,
@@ -113,10 +113,10 @@ CREATE TABLE `Part` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `Part`
+-- Dumping data for table `part`
 --
 
-INSERT INTO `Part` (`PartID`, `SKU`, `PartName`, `ModelNumber`, `CategoryID`, `ManufacturerID`, `Description`, `Price`) VALUES
+INSERT INTO `part` (`PartID`, `SKU`, `PartName`, `ModelNumber`, `CategoryID`, `ManufacturerID`, `Description`, `Price`) VALUES
 (1, 'CPU-INT-001', 'Core i7-12700K', 'BX8071512700K', 1, 1, '12th Gen Intel Core i7 Processor', 350.00),
 (2, 'CPU-AMD-001', 'Ryzen 7 5800X', '100-100000063WOF', 1, 2, 'AMD Ryzen 7 5800X 8-Core Processor', 300.00),
 (3, 'GPU-NVD-001', 'GeForce RTX 4080', 'RTX4080-16G', 2, 3, 'NVIDIA GeForce RTX 4080 16GB GDDR6X', 1200.00),
@@ -128,10 +128,10 @@ INSERT INTO `Part` (`PartID`, `SKU`, `PartName`, `ModelNumber`, `CategoryID`, `M
 -- --------------------------------------------------------
 
 --
--- Table structure for table `StockTransaction`
+-- Table structure for table `stocktransaction`
 --
 
-CREATE TABLE `StockTransaction` (
+CREATE TABLE `stocktransaction` (
   `TransactionID` int(11) NOT NULL,
   `TransactionType` varchar(255) NOT NULL,
   `Quantity` int(11) NOT NULL,
@@ -140,14 +140,14 @@ CREATE TABLE `StockTransaction` (
   `PartID` int(11) DEFAULT NULL,
   `SupplierID` int(11) DEFAULT NULL,
   `UserID` int(11) DEFAULT NULL,
-  `ReferenceNumber` varchar(255) DEFAULT NULL
+  `ReferenceNumber` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `StockTransaction`
+-- Dumping data for table `stocktransaction`
 --
 
-INSERT INTO `StockTransaction` (`TransactionID`, `TransactionType`, `Quantity`, `TransactionDate`, `Notes`, `PartID`, `SupplierID`, `UserID`, `ReferenceNumber`) VALUES
+INSERT INTO `stocktransaction` (`TransactionID`, `TransactionType`, `Quantity`, `TransactionDate`, `Notes`, `PartID`, `SupplierID`, `UserID`, `ReferenceNumber`) VALUES
 (1, 'Receipt', 50, '2026-06-01 10:00:00', 'Initial Stock', 1, 1, 1, 'PO-001'),
 (2, 'Receipt', 40, '2026-06-01 11:30:00', 'Initial Stock', 2, 2, 2, 'PO-002'),
 (3, 'Receipt', 15, '2026-06-02 09:15:00', 'New GPU Arrival', 3, 3, 1, 'PO-003'),
@@ -159,10 +159,10 @@ INSERT INTO `StockTransaction` (`TransactionID`, `TransactionType`, `Quantity`, 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `Supplier`
+-- Table structure for table `supplier`
 --
 
-CREATE TABLE `Supplier` (
+CREATE TABLE `supplier` (
   `SupplierID` int(11) NOT NULL,
   `SupplierName` varchar(255) NOT NULL,
   `PhoneNumber` varchar(15) NOT NULL,
@@ -172,10 +172,10 @@ CREATE TABLE `Supplier` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `Supplier`
+-- Dumping data for table `supplier`
 --
 
-INSERT INTO `Supplier` (`SupplierID`, `SupplierName`, `PhoneNumber`, `SupplierEmail`, `SupplierAddress`, `UserID`) VALUES
+INSERT INTO `supplier` (`SupplierID`, `SupplierName`, `PhoneNumber`, `SupplierEmail`, `SupplierAddress`, `UserID`) VALUES
 (1, 'TechDistro Inc.', '800-1234', 'sales@techdistro.com', '123 Tech Blvd, Cityville', 1),
 (2, 'PC Parts Wholesale', '800-5678', 'contact@pcparts.com', '456 Silicon Ave, Townsville', 2),
 (3, 'Global Hardware', '800-9012', 'info@globalhw.com', '789 Circuit Road, Metropolis', 1),
@@ -185,10 +185,10 @@ INSERT INTO `Supplier` (`SupplierID`, `SupplierName`, `PhoneNumber`, `SupplierEm
 -- --------------------------------------------------------
 
 --
--- Table structure for table `Users`
+-- Table structure for table `users`
 --
 
-CREATE TABLE `Users` (
+CREATE TABLE `users` (
   `UserID` int(11) NOT NULL,
   `Username` varchar(255) NOT NULL,
   `UserPassword` varchar(255) NOT NULL,
@@ -199,10 +199,10 @@ CREATE TABLE `Users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `Users`
+-- Dumping data for table `users`
 --
 
-INSERT INTO `Users` (`UserID`, `Username`, `UserPassword`, `FullName`, `Role`, `Email`, `IsActive`) VALUES
+INSERT INTO `users` (`UserID`, `Username`, `UserPassword`, `FullName`, `Role`, `Email`, `IsActive`) VALUES
 (1, 'admin_kurt', 'hashedpw123', 'Kurt Paolo Redondo', 'Admin', 'kurt@example.com', 1),
 (2, 'admin_earl', 'hashedpw123', 'Earl Amodia', 'Admin', 'earl@example.com', 1),
 (3, 'admin_carlo', 'hashedpw123', 'John Carlo Nayan', 'Admin', 'carlo@example.com', 1),
@@ -214,53 +214,54 @@ INSERT INTO `Users` (`UserID`, `Username`, `UserPassword`, `FullName`, `Role`, `
 --
 
 --
--- Indexes for table `Category`
+-- Indexes for table `category`
 --
-ALTER TABLE `Category`
+ALTER TABLE `category`
   ADD PRIMARY KEY (`CategoryID`);
 
 --
--- Indexes for table `Inventory`
+-- Indexes for table `inventory`
 --
-ALTER TABLE `Inventory`
+ALTER TABLE `inventory`
   ADD PRIMARY KEY (`InventoryID`),
-  ADD KEY `PartID` (`PartID`);
+  ADD UNIQUE KEY `PartID` (`PartID`);
 
 --
--- Indexes for table `Manufacturer`
+-- Indexes for table `manufacturer`
 --
-ALTER TABLE `Manufacturer`
+ALTER TABLE `manufacturer`
   ADD PRIMARY KEY (`ManufacturerID`);
 
 --
--- Indexes for table `Part`
+-- Indexes for table `part`
 --
-ALTER TABLE `Part`
+ALTER TABLE `part`
   ADD PRIMARY KEY (`PartID`),
   ADD UNIQUE KEY `SKU` (`SKU`),
   ADD KEY `CategoryID` (`CategoryID`),
   ADD KEY `ManufacturerID` (`ManufacturerID`);
 
 --
--- Indexes for table `StockTransaction`
+-- Indexes for table `stocktransaction`
 --
-ALTER TABLE `StockTransaction`
+ALTER TABLE `stocktransaction`
   ADD PRIMARY KEY (`TransactionID`),
+  ADD UNIQUE KEY `ReferenceNumber` (`ReferenceNumber`),
   ADD KEY `PartID` (`PartID`),
   ADD KEY `SupplierID` (`SupplierID`),
   ADD KEY `UserID` (`UserID`);
 
 --
--- Indexes for table `Supplier`
+-- Indexes for table `supplier`
 --
-ALTER TABLE `Supplier`
+ALTER TABLE `supplier`
   ADD PRIMARY KEY (`SupplierID`),
   ADD KEY `UserID` (`UserID`);
 
 --
--- Indexes for table `Users`
+-- Indexes for table `users`
 --
-ALTER TABLE `Users`
+ALTER TABLE `users`
   ADD PRIMARY KEY (`UserID`);
 
 --
@@ -268,45 +269,45 @@ ALTER TABLE `Users`
 --
 
 --
--- AUTO_INCREMENT for table `Category`
+-- AUTO_INCREMENT for table `category`
 --
-ALTER TABLE `Category`
+ALTER TABLE `category`
   MODIFY `CategoryID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT for table `Inventory`
+-- AUTO_INCREMENT for table `inventory`
 --
-ALTER TABLE `Inventory`
+ALTER TABLE `inventory`
   MODIFY `InventoryID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT for table `Manufacturer`
+-- AUTO_INCREMENT for table `manufacturer`
 --
-ALTER TABLE `Manufacturer`
+ALTER TABLE `manufacturer`
   MODIFY `ManufacturerID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT for table `Part`
+-- AUTO_INCREMENT for table `part`
 --
-ALTER TABLE `Part`
+ALTER TABLE `part`
   MODIFY `PartID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT for table `StockTransaction`
+-- AUTO_INCREMENT for table `stocktransaction`
 --
-ALTER TABLE `StockTransaction`
+ALTER TABLE `stocktransaction`
   MODIFY `TransactionID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT for table `Supplier`
+-- AUTO_INCREMENT for table `supplier`
 --
-ALTER TABLE `Supplier`
+ALTER TABLE `supplier`
   MODIFY `SupplierID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT for table `Users`
+-- AUTO_INCREMENT for table `users`
 --
-ALTER TABLE `Users`
+ALTER TABLE `users`
   MODIFY `UserID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
@@ -314,31 +315,31 @@ ALTER TABLE `Users`
 --
 
 --
--- Constraints for table `Inventory`
+-- Constraints for table `inventory`
 --
-ALTER TABLE `Inventory`
-  ADD CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`PartID`) REFERENCES `Part` (`PartID`);
+ALTER TABLE `inventory`
+  ADD CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`PartID`) REFERENCES `part` (`PartID`);
 
 --
--- Constraints for table `Part`
+-- Constraints for table `part`
 --
-ALTER TABLE `Part`
-  ADD CONSTRAINT `part_ibfk_1` FOREIGN KEY (`CategoryID`) REFERENCES `Category` (`CategoryID`),
-  ADD CONSTRAINT `part_ibfk_2` FOREIGN KEY (`ManufacturerID`) REFERENCES `Manufacturer` (`ManufacturerID`);
+ALTER TABLE `part`
+  ADD CONSTRAINT `part_ibfk_1` FOREIGN KEY (`CategoryID`) REFERENCES `category` (`CategoryID`),
+  ADD CONSTRAINT `part_ibfk_2` FOREIGN KEY (`ManufacturerID`) REFERENCES `manufacturer` (`ManufacturerID`);
 
 --
--- Constraints for table `StockTransaction`
+-- Constraints for table `stocktransaction`
 --
-ALTER TABLE `StockTransaction`
-  ADD CONSTRAINT `stocktransaction_ibfk_1` FOREIGN KEY (`PartID`) REFERENCES `Part` (`PartID`),
-  ADD CONSTRAINT `stocktransaction_ibfk_2` FOREIGN KEY (`SupplierID`) REFERENCES `Supplier` (`SupplierID`),
-  ADD CONSTRAINT `stocktransaction_ibfk_3` FOREIGN KEY (`UserID`) REFERENCES `Users` (`UserID`);
+ALTER TABLE `stocktransaction`
+  ADD CONSTRAINT `stocktransaction_ibfk_1` FOREIGN KEY (`PartID`) REFERENCES `part` (`PartID`),
+  ADD CONSTRAINT `stocktransaction_ibfk_2` FOREIGN KEY (`SupplierID`) REFERENCES `supplier` (`SupplierID`),
+  ADD CONSTRAINT `stocktransaction_ibfk_3` FOREIGN KEY (`UserID`) REFERENCES `users` (`UserID`);
 
 --
--- Constraints for table `Supplier`
+-- Constraints for table `supplier`
 --
-ALTER TABLE `Supplier`
-  ADD CONSTRAINT `supplier_ibfk_1` FOREIGN KEY (`UserID`) REFERENCES `Users` (`UserID`);
+ALTER TABLE `supplier`
+  ADD CONSTRAINT `supplier_ibfk_1` FOREIGN KEY (`UserID`) REFERENCES `users` (`UserID`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

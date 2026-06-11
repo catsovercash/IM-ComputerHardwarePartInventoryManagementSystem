@@ -56,6 +56,16 @@ $query_recent_transactions = "
     LIMIT 5
 ";
 $recent_transactions_result = $conn->query($query_recent_transactions);
+
+// 6. Get category distribution (Query 10)
+$query_category_distribution = "
+    SELECT c.CategoryName, SUM(i.QuantityOnHand) AS TotalItemsInStock
+    FROM Part p
+    INNER JOIN Inventory i ON p.PartID = i.PartID
+    INNER JOIN Category c ON p.CategoryID = c.CategoryID
+    GROUP BY c.CategoryName
+";
+$category_distribution_result = $conn->query($query_category_distribution);
 ?>
 <!DOCTYPE html>
 <html>
@@ -125,9 +135,7 @@ $recent_transactions_result = $conn->query($query_recent_transactions);
                             }
                             
                             $math_sign = '';
-                            if ($transaction_row['TransactionType'] == 'Sale') {
-                                $math_sign = '-';
-                            } else {
+                            if ((int)$transaction_row['Quantity'] > 0) {
                                 $math_sign = '+';
                             }
                             ?>
@@ -145,6 +153,32 @@ $recent_transactions_result = $conn->query($query_recent_transactions);
                         }
                     } else {
                         echo '<li class="feed-empty">No recent transactions found.</li>';
+                    }
+                }
+                ?>
+            </ul>
+        </div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <h3>Category Distribution</h3>
+            <ul class="recent-list">
+                <?php 
+                if ($category_distribution_result) {
+                    if ($category_distribution_result->num_rows > 0) {
+                        while ($cat_row = $category_distribution_result->fetch_assoc()) {
+                            ?>
+                            <li>
+                                <div>
+                                    <p class="feed-item-title"><?= htmlspecialchars($cat_row['CategoryName']) ?></p>
+                                </div>
+                                <div class="feed-item-right">
+                                    <span class="feed-qty"><?= number_format($cat_row['TotalItemsInStock']) ?> items</span>
+                                </div>
+                            </li>
+                            <?php 
+                        }
+                    } else {
+                        echo '<li class="feed-empty">No category distribution data found.</li>';
                     }
                 }
                 ?>

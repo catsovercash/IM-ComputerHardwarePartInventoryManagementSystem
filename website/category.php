@@ -11,6 +11,7 @@ include 'db.php';
 
 
 
+$error_message = '';
 // --- CHECK IF EDITING ---
 // If 'edit' is in the URL, fetch the record so we can fill the form
 $edit_row = null;
@@ -28,14 +29,18 @@ if (isset($_GET['edit'])) {
 if (isset($_GET['delete'])) {
     $id_to_delete = (int)$_GET['delete'];
     
-    
-    // Perform the actual deletion
     $delete_query = "DELETE FROM Category WHERE CategoryID = $id_to_delete";
-    $conn->query($delete_query);
-    
-    // Reload the page
-    header("Location: category.php"); 
-    exit;
+    try {
+        $conn->query($delete_query);
+        header("Location: category.php"); 
+        exit;
+    } catch (mysqli_sql_exception $e) {
+        if ($e->getCode() == 1451) {
+            $error_message = "Error: Cannot delete this record because it is currently in use by other items (Foreign Key Constraint).";
+        } else {
+            $error_message = "Error deleting record: " . $e->getMessage();
+        }
+    }
 }
 
 // --- CHECK IF SAVING/UPDATING FORM ---
@@ -49,8 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // If 'update_id' exists, we are UPDATING an old record
     if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
         $id_to_update = (int)$_POST['update_id'];
-        
-        // Before updating a stock transaction, reverse its old math from the inventory
         
         // Update the actual record
         $update_record_sql = "UPDATE Category SET CategoryName = $CategoryName WHERE CategoryID = $id_to_update";
@@ -141,6 +144,12 @@ $result = $conn->query($final_query);
             }
             ?>
             </h3>
+
+            <?php if (!empty($error_message)): ?>
+                <div class="error-msg" style="color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 12px; border-radius: 5px; margin-bottom: 20px; font-weight: bold;">
+                    <?= htmlspecialchars($error_message) ?>
+                </div>
+            <?php endif; ?>
             <form method="POST">
                 <?php
                 // Hidden input to pass the ID if we are editing

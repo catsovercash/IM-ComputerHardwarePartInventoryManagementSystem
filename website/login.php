@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $safe_password = $conn->real_escape_string($raw_password);
     
     // Ask the database if this user exists
-    $login_sql = "SELECT UserID, FullName, Role FROM Users WHERE Username = '$safe_username' AND UserPassword = '$safe_password'";
+    $login_sql = "SELECT UserID, FullName, Role FROM Users WHERE Username = '$safe_username' AND UserPassword = '$safe_password' AND IsActive = 1";
     $login_result = $conn->query($login_sql);
     
     if ($login_result) {

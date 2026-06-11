@@ -48,17 +48,22 @@ if (isset($_GET['edit'])) {
 if (isset($_GET['delete'])) {
     $id_to_delete = (int)$_GET['delete'];
     
-    
-    // Perform the actual deletion
     $delete_query = "DELETE FROM Part WHERE PartID = $id_to_delete";
-    $conn->query($delete_query);
-    
-    // Reload the page
-    header("Location: part.php"); 
-    exit;
+    try {
+        $conn->query($delete_query);
+        header("Location: part.php"); 
+        exit;
+    } catch (mysqli_sql_exception $e) {
+        if ($e->getCode() == 1451) {
+            $error_message = "Error: Cannot delete this record because it is currently in use by other items (Foreign Key Constraint).";
+        } else {
+            $error_message = "Error deleting record: " . $e->getMessage();
+        }
+    }
 }
 
 // --- CHECK IF SAVING/UPDATING FORM ---
+$error_message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     // Grab form inputs securely
@@ -82,29 +87,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $Price = "'" . $safe_value . "'";
     }
 
-
-    // If 'update_id' exists, we are UPDATING an old record
-    if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
-        $id_to_update = (int)$_POST['update_id'];
-        
-        // Before updating a stock transaction, reverse its old math from the inventory
-        
-        // Update the actual record
-        $update_record_sql = "UPDATE Part SET SKU = $SKU, PartName = $PartName, ModelNumber = $ModelNumber, CategoryID = $CategoryID, ManufacturerID = $ManufacturerID, Description = $Description, Price = $Price WHERE PartID = $id_to_update";
-        $conn->query($update_record_sql);
-        
-        
-    // If 'update_id' is empty, we are INSERTING a new record
-    } else {
-        // Create the record
-        $insert_record_sql = "INSERT INTO Part (SKU, PartName, ModelNumber, CategoryID, ManufacturerID, Description, Price) VALUES ($SKU, $PartName, $ModelNumber, $CategoryID, $ManufacturerID, $Description, $Price)";
-        $conn->query($insert_record_sql);
-        
-    }
+    // Validate SKU uniqueness
+    $sku_check_safe = $conn->real_escape_string($_POST['SKU']);
+    $update_id_check = isset($_POST['update_id']) && $_POST['update_id'] != '' ? (int)$_POST['update_id'] : 0;
     
-    // Reload the page
-    header("Location: part.php");
-    exit;
+    $sku_check_sql = "SELECT PartID FROM Part WHERE SKU = '$sku_check_safe' AND PartID != $update_id_check";
+    $sku_check_res = $conn->query($sku_check_sql);
+    
+    if ($sku_check_res && $sku_check_res->num_rows > 0) {
+        $error_message = "Error: A part with this SKU already exists. Please use a unique SKU.";
+    }
+
+    if (empty($error_message)) {
+        // If 'update_id' exists, we are UPDATING an old record
+        if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
+            $id_to_update = (int)$_POST['update_id'];
+            
+            // Update the actual record
+            $update_record_sql = "UPDATE Part SET SKU = $SKU, PartName = $PartName, ModelNumber = $ModelNumber, CategoryID = $CategoryID, ManufacturerID = $ManufacturerID, Description = $Description, Price = $Price WHERE PartID = $id_to_update";
+            $conn->query($update_record_sql);
+            
+        // If 'update_id' is empty, we are INSERTING a new record
+        } else {
+            // Create the record
+            $insert_record_sql = "INSERT INTO Part (SKU, PartName, ModelNumber, CategoryID, ManufacturerID, Description, Price) VALUES ($SKU, $PartName, $ModelNumber, $CategoryID, $ManufacturerID, $Description, $Price)";
+            $conn->query($insert_record_sql);
+        }
+        
+        // Reload the page
+        header("Location: part.php");
+        exit;
+    }
 }
 
 // --- HANDLE SEARCH BAR ---
@@ -178,6 +191,13 @@ $result = $conn->query($final_query);
             }
             ?>
             </h3>
+            
+            <?php if (!empty($error_message)): ?>
+                <div class="error-msg" style="color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 12px; border-radius: 5px; margin-bottom: 20px; font-weight: bold;">
+                    <?= htmlspecialchars($error_message) ?>
+                </div>
+            <?php endif; ?>
+
             <form method="POST">
                 <?php
                 // Hidden input to pass the ID if we are editing

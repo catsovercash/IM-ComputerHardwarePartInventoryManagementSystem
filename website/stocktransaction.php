@@ -94,7 +94,10 @@ $error_message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     $ref_num_check = $conn->real_escape_string($_POST['ReferenceNumber']);
-    $update_id_check = isset($_POST['update_id']) && $_POST['update_id'] != '' ? (int)$_POST['update_id'] : 0;
+    $update_id_check = 0;
+    if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
+        $update_id_check = (int)$_POST['update_id'];
+    }
     $ref_check_sql = "SELECT TransactionID FROM StockTransaction WHERE ReferenceNumber = '$ref_num_check' AND TransactionID != $update_id_check";
     $ref_check_res = $conn->query($ref_check_sql);
     
@@ -129,20 +132,38 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                     if ($old_part == $part_id_check) {
                         $inv_res = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $old_part");
-                        $curr_qty = ($inv_res && $row = $inv_res->fetch_assoc()) ? (int)$row['QuantityOnHand'] : 0;
+                        $curr_qty = 0;
+                        if ($inv_res) {
+                            $row = $inv_res->fetch_assoc();
+                            if ($row) {
+                                $curr_qty = (int)$row['QuantityOnHand'];
+                            }
+                        }
                         if ($curr_qty - $old_net + $net_change < 0) {
                             $error_message = 'Cannot save: Update drops inventory below 0.';
                         }
                     } else {
                         $inv_old = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $old_part");
-                        $curr_old_qty = ($inv_old && $row = $inv_old->fetch_assoc()) ? (int)$row['QuantityOnHand'] : 0;
+                        $curr_old_qty = 0;
+                        if ($inv_old) {
+                            $row = $inv_old->fetch_assoc();
+                            if ($row) {
+                                $curr_old_qty = (int)$row['QuantityOnHand'];
+                            }
+                        }
                         if ($curr_old_qty - $old_net < 0) {
                             $error_message = 'Cannot save: Update drops original part inventory below 0.';
                         }
 
                         if (empty($error_message)) {
                             $inv_new = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $part_id_check");
-                            $curr_new_qty = ($inv_new && $row = $inv_new->fetch_assoc()) ? (int)$row['QuantityOnHand'] : 0;
+                            $curr_new_qty = 0;
+                            if ($inv_new) {
+                                $row = $inv_new->fetch_assoc();
+                                if ($row) {
+                                    $curr_new_qty = (int)$row['QuantityOnHand'];
+                                }
+                            }
                             if ($curr_new_qty + $net_change < 0) {
                                 $error_message = 'Cannot save: Update drops new part inventory below 0.';
                             }
@@ -151,7 +172,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             } else {
                 $inv_res = $conn->query("SELECT QuantityOnHand FROM Inventory WHERE PartID = $part_id_check");
-                $curr_qty = ($inv_res && $row = $inv_res->fetch_assoc()) ? (int)$row['QuantityOnHand'] : 0;
+                $curr_qty = 0;
+                        if ($inv_res) {
+                            $row = $inv_res->fetch_assoc();
+                            if ($row) {
+                                $curr_qty = (int)$row['QuantityOnHand'];
+                            }
+                        }
                 if ($curr_qty + $net_change < 0) {
                     $error_message = 'Cannot save: Transaction drops inventory below 0.';
                 }

@@ -20,11 +20,11 @@ if ($parts_result) {
 
 // 2. Get the total number of categories
 $total_categories = 0;
-$query_cats = "SELECT COUNT(*) AS total FROM Category";
-$cats_result = $conn->query($query_cats);
-if ($cats_result) {
-    $cats_row = $cats_result->fetch_assoc();
-    $total_categories = $cats_row['total'];
+$query_categories = "SELECT COUNT(*) AS total FROM Category";
+$categories_result = $conn->query($query_categories);
+if ($categories_result) {
+    $categories_row = $categories_result->fetch_assoc();
+    $total_categories = $categories_row['total'];
 }
 
 // 3. Get the total number of active users
@@ -165,14 +165,14 @@ $category_distribution_result = $conn->query($query_category_distribution);
                 <?php 
                 if ($category_distribution_result) {
                     if ($category_distribution_result->num_rows > 0) {
-                        while ($cat_row = $category_distribution_result->fetch_assoc()) {
+                        while ($category_row = $category_distribution_result->fetch_assoc()) {
                             ?>
                             <li>
                                 <div>
-                                    <p class="feed-item-title"><?= htmlspecialchars($cat_row['CategoryName']) ?></p>
+                                    <p class="feed-item-title"><?= htmlspecialchars($category_row['CategoryName']) ?></p>
                                 </div>
                                 <div class="feed-item-right">
-                                    <span class="feed-qty"><?= number_format($cat_row['TotalItemsInStock']) ?> items</span>
+                                    <span class="feed-qty"><?= number_format($category_row['TotalItemsInStock']) ?> items</span>
                                 </div>
                             </li>
                             <?php 

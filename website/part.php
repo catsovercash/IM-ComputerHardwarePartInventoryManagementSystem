@@ -89,7 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Validate SKU uniqueness
     $sku_check_safe = $conn->real_escape_string($_POST['SKU']);
-    $update_id_check = isset($_POST['update_id']) && $_POST['update_id'] != '' ? (int)$_POST['update_id'] : 0;
+    $update_id_check = 0;
+    if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
+        $update_id_check = (int)$_POST['update_id'];
+    }
     
     $sku_check_sql = "SELECT PartID FROM Part WHERE SKU = '$sku_check_safe' AND PartID != $update_id_check";
     $sku_check_res = $conn->query($sku_check_sql);

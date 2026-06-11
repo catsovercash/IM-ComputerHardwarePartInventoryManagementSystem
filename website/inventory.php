@@ -86,7 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Validate PartID uniqueness
     $part_id_check = (int)$_POST['PartID'];
-    $update_id_check = isset($_POST['update_id']) && $_POST['update_id'] != '' ? (int)$_POST['update_id'] : 0;
+    $update_id_check = 0;
+    if (isset($_POST['update_id']) && $_POST['update_id'] != '') {
+        $update_id_check = (int)$_POST['update_id'];
+    }
     
     $part_check_sql = "SELECT InventoryID FROM Inventory WHERE PartID = $part_id_check AND InventoryID != $update_id_check";
     $part_check_res = $conn->query($part_check_sql);

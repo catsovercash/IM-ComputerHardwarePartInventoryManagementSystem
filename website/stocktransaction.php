@@ -468,7 +468,7 @@ $result = $conn->query($final_query);
             <table>
                 <thead>
                     <tr>
-                        <th>TransactionID</th><th>TransactionType</th><th>Quantity</th><th>TransactionDate</th><th>Notes</th><th>PartName</th><th>SupplierName</th><th>FullName</th><th>ReferenceNumber</th>
+                        <th>TransactionID</th><th>TransactionType</th><th>Quantity</th><th>TransactionDate</th><th>Notes</th><th>PartName</th><th>SupplierName</th><th>Handled By</th><th>ReferenceNumber</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
